@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>Road to Liberty</title>
+<style>
+  :root {
+    --accent: #ffcc29;
+    --accent2: #ff7b29;
+    --bg-dark: #0d1b2a;
+    --panel: rgba(13, 27, 42, 0.85);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%;
+    background: #05070d;
+    font-family: "Trebuchet MS", "Segoe UI", system-ui, sans-serif;
+    color: #fff;
+    overflow: hidden;
+    user-select: none;
+  }
+  #game-wrap {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: radial-gradient(circle at 50% 30%, #1b3a5b, #05070d 80%);
+  }
+  canvas {
+    display: block;
+    background: #11212e;
+    touch-action: none;
+    max-width: 100%;
+    max-height: 100%;
+    box-shadow: 0 0 60px rgba(0,0,0,0.6);
+  }
+
+  /* ---- Overlays ---- */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    z-index: 10;
+  }
+  .hidden { display: none !important; }
+
+  .logo {
+    font-size: clamp(40px, 9vw, 86px);
+    font-weight: 900;
+    letter-spacing: 2px;
+    line-height: 0.95;
+    background: linear-gradient(180deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: 0 4px 18px rgba(255,123,41,0.35);
+  }
+  .logo .badge {
+    display: block;
+    font-size: clamp(34px, 7vw, 60px);
+    margin-bottom: 6px;
+    -webkit-text-fill-color: initial;
+  }
+  .subtitle {
+    margin-top: 4px;
+    font-size: clamp(13px, 3vw, 18px);
+    color: #cfe3f2;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+  }
+
+  .panel {
+    margin-top: 22px;
+    background: var(--panel);
+    border: 1px solid rgba(255,204,41,0.25);
+    border-radius: 16px;
+    padding: 18px 22px;
+    max-width: 460px;
+    width: 100%;
+    backdrop-filter: blur(4px);
+  }
+  .panel h3 {
+    font-size: 15px;
+    color: var(--accent);
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+  }
+  .rules {
+    list-style: none;
+    font-size: 14px;
+    line-height: 1.7;
+    color: #e7eef5;
+    text-align: left;
+  }
+  .rules li { display: flex; align-items: center; gap: 8px; }
+  .rules .win { color: var(--accent); font-weight: bold; }
+
+  /* ---- Bike chooser ---- */
+  .chooser-title {
+    margin-top: 22px;
+    font-size: 14px;
+    letter-spacing: 2px;
+    color: #cfe3f2;
+    text-transform: uppercase;
+  }
+  .bikes {
+    display: flex;
+    gap: 14px;
+    margin-top: 12px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .bike-card {
+    width: 110px;
+    padding: 12px 8px;
+    background: rgba(255,255,255,0.05);
+    border: 2px solid rgba(255,255,255,0.12);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: transform .15s, border-color .15s, background .15s;
+  }
+  .bike-card:hover { transform: translateY(-3px); }
+  .bike-card.selected {
+    border-color: var(--accent);
+    background: rgba(255,204,41,0.12);
+    box-shadow: 0 0 22px rgba(255,204,41,0.3);
+  }
+  .bike-card .emoji { font-size: 40px; }
+  .bike-card .name { margin-top: 6px; font-size: 12px; letter-spacing: 1px; }
+  .bike-card .swatch {
+    width: 36px; height: 8px; border-radius: 4px; margin: 8px auto 0;
+  }
+
+  .btn {
+    margin-top: 26px;
+    padding: 16px 54px;
+    font-size: 22px;
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: #1a1207;
+    background: linear-gradient(180deg, var(--accent), var(--accent2));
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 8px 0 #b5560f, 0 12px 24px rgba(0,0,0,0.4);
+    transition: transform .08s, box-shadow .08s;
+  }
+  .btn:active { transform: translateY(5px); box-shadow: 0 3px 0 #b5560f, 0 6px 14px rgba(0,0,0,0.4); }
+
+  /* ---- Countdown ---- */
+  #countdown {
+    font-size: clamp(90px, 28vw, 240px);
+    font-weight: 900;
+    color: var(--accent);
+    text-shadow: 0 0 40px rgba(255,204,41,0.6);
+    animation: pop .6s ease-out;
+    background: rgba(5,7,13,0.45);
+  }
+  @keyframes pop {
+    0% { transform: scale(0.2); opacity: 0; }
+    50% { transform: scale(1.15); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* ---- Result ---- */
+  #result .result-score {
+    font-size: clamp(70px, 18vw, 150px);
+    font-weight: 900;
+    color: #fff;
+    line-height: 1;
+  }
+  #result .result-label { font-size: 18px; letter-spacing: 3px; color: #cfe3f2; text-transform: uppercase; }
+  #result .verdict {
+    margin-top: 18px;
+    font-size: clamp(20px, 5vw, 30px);
+    font-weight: 900;
+    letter-spacing: 1px;
+  }
+  #result .verdict.win { color: var(--accent); }
+  #result .verdict.lose { color: #ff6b6b; }
+  #result .verdict-sub { margin-top: 6px; font-size: 15px; color: #cfe3f2; }
+
+  .credit {
+    position: absolute;
+    bottom: 10px;
+    font-size: 11px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+<body>
+<div id="game-wrap">
+  <canvas id="game"></canvas>
+
+  <!-- START SCREEN -->
+  <div id="start" class="overlay">
+    <div class="logo"><span class="badge">🏍️🗽</span>ROAD TO<br/>LIBERTY</div>
+    <div class="subtitle">A Top-Down Arcade Ride</div>
+
+    <div class="panel">
+      <h3>How to Play</h3>
+      <ul class="rules">
+        <li>👉 Drag to move your bike &amp; collect falling parts</li>
+        <li>⛽ 🛞 🔧 💡 Each part you catch = +points</li>
+        <li>🪨 Avoid the rocks — they cost you points!</li>
+        <li class="win">🎯 Score 13 to win the game!</li>
+      </ul>
+    </div>
+
+    <div class="chooser-title">Choose Your Liberty Edition</div>
+    <div class="bikes" id="bikes"></div>
+
+    <button class="btn" id="startBtn">START</button>
+  </div>
+
+  <!-- COUNTDOWN -->
+  <div id="countdown" class="overlay hidden"></div>
+
+  <!-- RESULT SCREEN -->
+  <div id="result" class="overlay hidden">
+    <div class="result-label">Final Score</div>
+    <div class="result-score" id="finalScore">0</div>
+    <div class="verdict" id="verdict"></div>
+    <div class="verdict-sub" id="verdictSub"></div>
+    <button class="btn" id="replayBtn">REPLAY</button>
+  </div>
+
+  <div class="credit">ROAD TO LIBERTY</div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  // ---------- Config ----------
+  const GAME_DURATION = 20.0;   // seconds
+  const WIN_SCORE = 13;
+  const BASE_W = 480;           // logical resolution
+  const BASE_H = 800;
+
+  const BIKES = [
+    { name: "CLASSIC", color: "#e63946", emoji: "🏍️" },
+    { name: "RACER",   color: "#2a9d8f", emoji: "🏍️" },
+    { name: "ROYAL",   color: "#8e7cff", emoji: "🏍️" },
+  ];
+
+  // Collectible part definitions
+  const PARTS = [
+    { key: "fuel",  emoji: "⛽", points: 1 },
+    { key: "wheel", emoji: "🛞", points: 1 },
+    { key: "bar",   emoji: "🔧", points: 2 },
+    { key: "light", emoji: "💡", points: 2 },
+  ];
+  const ROCK = { emoji: "🪨", points: -3 };
+
+  // ---------- Canvas setup ----------
+  const canvas = document.getElementById("game");
+  const ctx = canvas.getContext("2d");
+  let scale = 1, offsetX = 0, offsetY = 0;
+
+  function resize() {
+    const wrap = document.getElementById("game-wrap");
+    const availW = wrap.clientWidth;
+    const availH = wrap.clientHeight;
+    const targetRatio = BASE_W / BASE_H;
+    let cssW, cssH;
+    if (availW / availH > targetRatio) {
+      cssH = availH;
+      cssW = cssH * targetRatio;
+    } else {
+      cssW = availW;
+      cssH = cssW / targetRatio;
+    }
+    const dpr = window.devicePixelRatio || 1;
+    canvas.style.width = cssW + "px";
+    canvas.style.height = cssH + "px";
+    canvas.width = Math.round(BASE_W * dpr);
+    canvas.height = Math.round(BASE_H * dpr);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    // mapping from client coords to logical coords
+    const rect = canvas.getBoundingClientRect();
+    scale = BASE_W / rect.width;
+    offsetX = rect.left;
+    offsetY = rect.top;
+  }
+  window.addEventListener("resize", resize);
+
+  // ---------- Game state ----------
+  const STATE = { START: 0, COUNTDOWN: 1, PLAYING: 2, RESULT: 3 };
+  let state = STATE.START;
+  let selectedBike = 0;
+
+  const player = { x: BASE_W / 2, y: BASE_H - 90, w: 70, h: 110 };
+  let fallers = [];        // {x,y,vy,r,type:'part'|'rock',def}
+  let score = 0;
+  let timeLeft = GAME_DURATION;
+  let spawnTimer = 0;
+  let lastTs = 0;
+  let roadOffset = 0;
+  let pops = [];           // score popups {x,y,life,text,color}
+
+  // ---------- UI wiring ----------
+  const elStart = document.getElementById("start");
+  const elCountdown = document.getElementById("countdown");
+  const elResult = document.getElementById("result");
+  const bikesEl = document.getElementById("bikes");
+
+  BIKES.forEach((b, i) => {
+    const card = document.createElement("div");
+    card.className = "bike-card" + (i === 0 ? " selected" : "");
+    card.innerHTML = `<div class="emoji">${b.emoji}</div>
+                      <div class="name">${b.name}</div>
+                      <div class="swatch" style="background:${b.color}"></div>`;
+    card.addEventListener("click", () => {
+      selectedBike = i;
+      [...bikesEl.children].forEach(c => c.classList.remove("selected"));
+      card.classList.add("selected");
+    });
+    bikesEl.appendChild(card);
+  });
+
+  document.getElementById("startBtn").addEventListener("click", startCountdown);
+  document.getElementById("replayBtn").addEventListener("click", () => {
+    elResult.classList.add("hidden");
+    startCountdown();
+  });
+
+  // ---------- Input (drag) ----------
+  let dragging = false;
+  function pointerX(clientX) {
+    const rect = canvas.getBoundingClientRect();
+    return (clientX - rect.left) * (BASE_W / rect.width);
+  }
+  function onDown(e) {
+    if (state !== STATE.PLAYING) return;
+    dragging = true;
+    movePlayer(e);
+  }
+  function onMove(e) {
+    if (!dragging || state !== STATE.PLAYING) return;
+    movePlayer(e);
+    e.preventDefault();
+  }
+  function onUp() { dragging = false; }
+  function movePlayer(e) {
+    const cx = e.touches ? e.touches[0].clientX : e.clientX;
+    let x = pointerX(cx);
+    x = Math.max(player.w / 2, Math.min(BASE_W - player.w / 2, x));
+    player.x = x;
+  }
+  canvas.addEventListener("mousedown", onDown);
+  window.addEventListener("mousemove", onMove);
+  window.addEventListener("mouseup", onUp);
+  canvas.addEventListener("touchstart", onDown, { passive: false });
+  canvas.addEventListener("touchmove", onMove, { passive: false });
+  window.addEventListener("touchend", onUp);
+
+  // ---------- Flow ----------
+  function startCountdown() {
+    elStart.classList.add("hidden");
+    elResult.classList.add("hidden");
+    resetGame();
+    state = STATE.COUNTDOWN;
+    let seq = ["3", "2", "1", "GO!"];
+    elCountdown.classList.remove("hidden");
+    let i = 0;
+    const show = () => {
+      elCountdown.textContent = seq[i];
+      // retrigger pop animation
+      elCountdown.style.animation = "none";
+      void elCountdown.offsetWidth;
+      elCountdown.style.animation = "pop .6s ease-out";
+      i++;
+      if (i < seq.length) {
+        setTimeout(show, 800);
+      } else {
+        setTimeout(() => {
+          elCountdown.classList.add("hidden");
+          state = STATE.PLAYING;
+          lastTs = performance.now();
+        }, 700);
+      }
+    };
+    show();
+  }
+
+  function resetGame() {
+    score = 0;
+    timeLeft = GAME_DURATION;
+    fallers = [];
+    pops = [];
+    spawnTimer = 0;
+    player.x = BASE_W / 2;
+  }
+
+  function endGame() {
+    state = STATE.RESULT;
+    document.getElementById("finalScore").textContent = score;
+    const verdict = document.getElementById("verdict");
+    const sub = document.getElementById("verdictSub");
+    if (score >= WIN_SCORE) {
+      verdict.textContent = "WELL DONE!";
+      verdict.className = "verdict win";
+      sub.textContent = "You hit the target! 🎉";
+    } else {
+      verdict.textContent = "SO CLOSE!";
+      verdict.className = "verdict lose";
+      sub.textContent = `You needed ${WIN_SCORE} to win. Try again!`;
+    }
+    elResult.classList.remove("hidden");
+  }
+
+  // ---------- Spawning ----------
+  function spawn() {
+    const isRock = Math.random() < 0.32;
+    const def = isRock ? ROCK : PARTS[(Math.random() * PARTS.length) | 0];
+    const r = isRock ? 26 : 24;
+    fallers.push({
+      x: r + Math.random() * (BASE_W - r * 2),
+      y: -r,
+      vy: 200 + Math.random() * 160 + (GAME_DURATION - timeLeft) * 6, // speeds up over time
+      r,
+      type: isRock ? "rock" : "part",
+      def,
+      spin: Math.random() * Math.PI,
+      vspin: (Math.random() - 0.5) * 3,
+    });
+  }
+
+  // ---------- Update ----------
+  function update(dt) {
+    timeLeft -= dt;
+    roadOffset = (roadOffset + dt * 320) % 80;
+
+    if (timeLeft <= 0) {
+      timeLeft = 0;
+      endGame();
+      return;
+    }
+
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      spawn();
+      // spawn faster as time runs out
+      const progress = 1 - timeLeft / GAME_DURATION;
+      spawnTimer = Math.max(0.32, 0.75 - progress * 0.4);
+    }
+
+    const px = player.x;
+    const py = player.y;
+    for (let i = fallers.length - 1; i >= 0; i--) {
+      const f = fallers[i];
+      f.y += f.vy * dt;
+      f.spin += f.vspin * dt;
+
+      // collision with player (circle vs box-ish)
+      const dx = Math.abs(f.x - px);
+      const dy = Math.abs(f.y - py);
+      if (dx < player.w / 2 + f.r * 0.5 && dy < player.h / 2 + f.r * 0.4) {
+        applyHit(f);
+        fallers.splice(i, 1);
+        continue;
+      }
+      if (f.y - f.r > BASE_H) fallers.splice(i, 1);
+    }
+
+    // update popups
+    for (let i = pops.length - 1; i >= 0; i--) {
+      const p = pops[i];
+      p.y -= 40 * dt;
+      p.life -= dt;
+      if (p.life <= 0) pops.splice(i, 1);
+    }
+  }
+
+  function applyHit(f) {
+    const pts = f.def.points;
+    score = Math.max(0, score + pts);
+    pops.push({
+      x: f.x, y: f.y, life: 0.8,
+      text: (pts > 0 ? "+" : "") + pts,
+      color: pts > 0 ? "#9be35a" : "#ff6b6b",
+    });
+  }
+
+  // ---------- Render ----------
+  function drawRoad() {
+    ctx.fillStyle = "#2b2f36";
+    ctx.fillRect(0, 0, BASE_W, BASE_H);
+    // grass edges
+    ctx.fillStyle = "#1f3d24";
+    ctx.fillRect(0, 0, 40, BASE_H);
+    ctx.fillRect(BASE_W - 40, 0, 40, BASE_H);
+    // road
+    ctx.fillStyle = "#3a3f47";
+    ctx.fillRect(40, 0, BASE_W - 80, BASE_H);
+    // side lines
+    ctx.fillStyle = "#e9c46a";
+    ctx.fillRect(46, 0, 6, BASE_H);
+    ctx.fillRect(BASE_W - 52, 0, 6, BASE_H);
+    // dashed center lanes
+    ctx.fillStyle = "rgba(255,255,255,0.75)";
+    for (let lane = 1; lane <= 2; lane++) {
+      const lx = 40 + (BASE_W - 80) * (lane / 3) - 4;
+      for (let y = -80 + roadOffset; y < BASE_H; y += 80) {
+        ctx.fillRect(lx, y, 8, 44);
+      }
+    }
+  }
+
+  function drawBike(x, y) {
+    const c = BIKES[selectedBike].color;
+    ctx.save();
+    ctx.translate(x, y);
+    // shadow
+    ctx.fillStyle = "rgba(0,0,0,0.35)";
+    ctx.beginPath();
+    ctx.ellipse(0, player.h / 2 - 6, 28, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    const w = player.w, h = player.h;
+    // wheels
+    ctx.fillStyle = "#111";
+    roundRect(-14, -h/2 + 6, 28, 22, 8); ctx.fill();
+    roundRect(-14, h/2 - 30, 28, 24, 8); ctx.fill();
+    // body
+    ctx.fillStyle = c;
+    roundRect(-18, -h/2 + 18, 36, h - 40, 14); ctx.fill();
+    // seat / tank highlight
+    ctx.fillStyle = "rgba(255,255,255,0.25)";
+    roundRect(-10, -h/2 + 28, 20, 30, 8); ctx.fill();
+    // headlight
+    ctx.fillStyle = "#fff3b0";
+    ctx.beginPath();
+    ctx.arc(0, -h/2 + 14, 7, 0, Math.PI * 2);
+    ctx.fill();
+    // handlebars
+    ctx.strokeStyle = "#222";
+    ctx.lineWidth = 5;
+    ctx.beginPath();
+    ctx.moveTo(-20, -h/2 + 26);
+    ctx.lineTo(20, -h/2 + 26);
+    ctx.stroke();
+    // rider
+    ctx.fillStyle = "#2b2b2b";
+    ctx.beginPath(); ctx.arc(0, -2, 12, 0, Math.PI * 2); ctx.fill(); // helmet
+    ctx.fillStyle = "#5a6b7b";
+    roundRect(-12, 6, 24, 26, 10); ctx.fill(); // back
+    ctx.restore();
+  }
+
+  function drawFaller(f) {
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate(f.spin * 0.15);
+    if (f.type === "part") {
+      // little glowing disc behind part
+      ctx.fillStyle = "rgba(255,204,41,0.18)";
+      ctx.beginPath(); ctx.arc(0, 0, f.r + 4, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.font = (f.r * 1.8) + "px serif";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(f.def.emoji, 0, 2);
+    ctx.restore();
+  }
+
+  function drawHUD() {
+    // top bar
+    ctx.fillStyle = "rgba(5,7,13,0.55)";
+    ctx.fillRect(0, 0, BASE_W, 56);
+    ctx.textBaseline = "middle";
+    // score
+    ctx.fillStyle = "#ffcc29";
+    ctx.font = "bold 26px Trebuchet MS, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("SCORE", 16, 20);
+    ctx.fillStyle = "#fff";
+    ctx.font = "bold 30px Trebuchet MS, sans-serif";
+    ctx.fillText(String(score), 16, 42);
+    // target hint
+    ctx.fillStyle = "rgba(255,255,255,0.6)";
+    ctx.font = "14px Trebuchet MS, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText("Target: " + WIN_SCORE, BASE_W / 2, 16);
+
+    // time
+    ctx.textAlign = "right";
+    ctx.fillStyle = "#cfe3f2";
+    ctx.font = "bold 18px Trebuchet MS, sans-serif";
+    ctx.fillText("TIME", BASE_W - 16, 16);
+    ctx.fillStyle = timeLeft <= 5 ? "#ff6b6b" : "#fff";
+    ctx.font = "bold 30px Trebuchet MS, sans-serif";
+    ctx.fillText(timeLeft.toFixed(1), BASE_W - 16, 40);
+
+    // popups
+    pops.forEach(p => {
+      ctx.globalAlpha = Math.max(0, p.life / 0.8);
+      ctx.fillStyle = p.color;
+      ctx.font = "bold 28px Trebuchet MS, sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText(p.text, p.x, p.y);
+      ctx.globalAlpha = 1;
+    });
+  }
+
+  function render() {
+    drawRoad();
+    if (state === STATE.PLAYING || state === STATE.COUNTDOWN || state === STATE.RESULT) {
+      fallers.forEach(drawFaller);
+      drawBike(player.x, player.y);
+      if (state === STATE.PLAYING) drawHUD();
+    }
+  }
+
+  // ---------- Helpers ----------
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  // ---------- Main loop ----------
+  function loop(ts) {
+    const dt = Math.min(0.05, (ts - lastTs) / 1000 || 0);
+    lastTs = ts;
+    if (state === STATE.PLAYING) update(dt);
+    else roadOffset = (roadOffset + dt * 120) % 80; // idle scroll
+    render();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Boot ----------
+  resize();
+  requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>
